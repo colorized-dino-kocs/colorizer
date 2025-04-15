@@ -1,14 +1,15 @@
 import torch.nn as nn
 
-from model import Encoder, Bottleneck
+from model import Encoder, Bottleneck, Decoder, SemanticTokenExtractor
+from .TokenExtractor import SemanticTokenExtractor
 
 
 class Colorizer(nn.Module):
-    def __init__(self):
+    def __init__(self, dino_model):
         super().__init__()
 
         self.encoder = Encoder()
-        self.token_extractor = None
+        self.token_extractor = SemanticTokenExtractor(dino_model, projected_dim=512)
 
         self.bottleneck = Bottleneck(
             in_channels=512,
@@ -18,7 +19,12 @@ class Colorizer(nn.Module):
             dropout_rate=0.1
         )
 
-        self.decoder = None
+        self.decoder = Decoder(
+            use_attention=True,        # fuse semantics at every stage
+            num_heads=4,
+            ffn_hidden_dim=1024,
+            dropout_rate=0.1
+        )
         self.out = OutputLayer()
 
     def forward(self, x):
@@ -27,7 +33,7 @@ class Colorizer(nn.Module):
         *residual_features, encoded = self.encoder(x)
         semantic_tokens = self.token_extractor(x)
         bottleneck = self.bottleneck(encoded, semantic_tokens)
-        decoded = self.decoder(bottleneck, residual_features, tokens)
+        decoded = self.decoder(bottleneck, residual_features, semantic_tokens)
 
         return self.out(decoded)
 

@@ -1,3 +1,3 @@
-
 if __name__ == "__main__":
-    pass
+    from train import main
+    main()
